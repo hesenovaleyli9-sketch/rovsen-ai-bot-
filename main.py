@@ -20,8 +20,8 @@ def send_msg(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.get(url, params={"chat_id": CHAT_ID, "text": text})
 
-def bot():
-    time.sleep(5)
+def run_bot():
+    time.sleep(10)  # Render stabil start üçün
     send_msg("🤖 Signal Bot STARTED")
 
     while True:
@@ -41,9 +41,8 @@ def bot():
 def home():
     return "Bot Running"
 
-# 🔥 IMPORTANT FIX (Render-safe start)
 import threading
-threading.Thread(target=bot, daemon=True).start()
+threading.Thread(target=run_bot, daemon=True).start()
 
 port = int(os.environ.get("PORT", 10000))
 app.run(host="0.0.0.0", port=port)
