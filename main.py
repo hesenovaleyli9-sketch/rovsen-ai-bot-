@@ -43,34 +43,38 @@ def bot_loop():
     time.sleep(5)
 
     print("BOT LOOP STARTED")
-    send_msg("TEST: BOT IS WORKING")
 
-    send_msg("🤖 Signal Bot STARTED")
+    # TEST MESSAGE
+    send_msg("🔥 BOT SUCCESSFULLY STARTED ON RENDER")
 
     while True:
-        msg = "📊 Market Update:\n\n"
+        msg = "📊 MARKET UPDATE:\n\n"
 
-        for s in SYMBOLS:
+        for symbol in SYMBOLS:
             try:
-                price = client.get_symbol_ticker(symbol=s)["price"]
-                msg += f"{s}: {price}\n"
-            except:
-                msg += f"{s}: error\n"
+                price = client.get_symbol_ticker(symbol=symbol)["price"]
+                msg += f"{symbol}: {price}\n"
+            except Exception:
+                msg += f"{symbol}: error\n"
 
         send_msg(msg)
         time.sleep(60)
 
 # =========================
-# FLASK SERVER
+# FLASK ROUTE
 # =========================
 @app.route("/")
 def home():
-    return "Bot Running"
+    return "Bot is running"
 
 # =========================
 # START BOT THREAD
 # =========================
 threading.Thread(target=bot_loop, daemon=True).start()
 
-port = int(os.environ.get("PORT", 10000))
-app.run(host="0.0.0.0", port=port)
+# =========================
+# RUN SERVER (RENDER FIX)
+# =========================
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
