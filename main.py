@@ -1,3 +1,4 @@
+send_msg("TEST: bot started function is running")
 import os
 import time
 import requests
