@@ -1,4 +1,3 @@
-send_msg("TEST: bot started function is running")
 import os
 import time
 import requests
@@ -17,12 +16,13 @@ client = Client(API_KEY, API_SECRET)
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 
+# =========================
+# FUNCTIONS FIRST
+# =========================
+
 def send_msg(text):
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.get(url, params={"chat_id": CHAT_ID, "text": text})
-    except:
-        pass
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    requests.get(url, params={"chat_id": CHAT_ID, "text": text})
 
 def bot_loop():
     time.sleep(8)
@@ -41,15 +41,20 @@ def bot_loop():
         send_msg(msg)
         time.sleep(60)
 
+# =========================
+# FLASK
+# =========================
+
 @app.route("/")
 def home():
     return "Bot Running"
 
-# 🔥 IMPORTANT: force start BEFORE Flask run
+# =========================
+# START THREAD LAST
+# =========================
+
 import threading
-thread = threading.Thread(target=bot_loop)
-thread.daemon = True
-thread.start()
+threading.Thread(target=bot_loop, daemon=True).start()
 
 port = int(os.environ.get("PORT", 10000))
 app.run(host="0.0.0.0", port=port)
