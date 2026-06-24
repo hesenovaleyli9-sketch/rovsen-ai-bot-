@@ -22,7 +22,6 @@ CHAT_ID = os.getenv("CHAT_ID")
 client = Client(API_KEY, API_SECRET)
 
 
-# çıxarılacaq koinlər
 BLOCKED = [
     "USDT",
     "USDC",
@@ -53,7 +52,7 @@ def send_msg(text):
 
 
 
-def analyze(symbol):
+def get_analysis(symbol):
 
     try:
 
@@ -67,17 +66,20 @@ def analyze(symbol):
         df = pd.DataFrame(
             candles,
             columns=[
-            "time","open","high",
-            "low","close",
-            "volume",
-            "x1","x2","x3",
-            "x4","x5","x6"
+                "time","open",
+                "high","low",
+                "close",
+                "volume",
+                "x1","x2",
+                "x3","x4",
+                "x5","x6"
             ]
         )
 
 
         df["close"] = df["close"].astype(float)
         df["volume"] = df["volume"].astype(float)
+
 
 
         price = df["close"].iloc[-1]
@@ -98,168 +100,245 @@ def analyze(symbol):
         ).ema_indicator().iloc[-1]
 
 
-        volume_now = df["volume"].iloc[-1]
-        volume_avg = df["volume"].mean()
-
-
 
         score = 0
         reasons=[]
 
 
 
+        # Trend
+
         if ema20 > ema50:
-            score +=3
-            reasons.append(
-                "Trend yukarı"
-            )
 
-
-        if rsi < 70:
             score +=2
             reasons.append(
-                "RSI sağlam"
+                "Trend yükseliş"
             )
 
-        else:
+
+
+        # RSI
+
+        if 40 < rsi < 70:
+
+            score+=2
             reasons.append(
-                "RSI yüksək risk"
+                "RSI sağlam zona"
             )
+
+        elif rsi >=70:
+
+            reasons.append(
+                "RSI qızıb"
+            )
+
+
+
+        # Volume
+
+        volume_now=df["volume"].iloc[-1]
+
+        volume_avg=df["volume"].mean()
 
 
         if volume_now > volume_avg:
-            score+=3
+
+            score+=2
             reasons.append(
-                "Volume artımı"
+                "Volume artır"
             )
 
 
 
-        change = (
-            (price-df["close"].iloc[-5])
-            /
-            df["close"].iloc[-5]
-        )*100
+        # Momentum
+
+        old=df["close"].iloc[-10]
 
 
+        change=((price-old)/old)*100
 
-        if change > 2:
-            score+=1
+
+        if change > 1:
+
+            score+=2
             reasons.append(
                 "Momentum güclü"
             )
 
 
 
+        # Likvidlik
+
+        if volume_avg > 100000:
+
+            score+=1
+            reasons.append(
+                "Likvidlik yaxşı"
+            )
+
+
+
+        if rsi < 65:
+
+            score+=1
+
+
+
         return {
 
-        "symbol":symbol,
-        "price":price,
-        "rsi":round(rsi,2),
-        "score":score,
-        "change":round(change,2),
-        "reasons":reasons
+            "symbol":symbol,
+            "price":price,
+            "rsi":round(rsi,2),
+            "score":score,
+            "change":round(change,2),
+            "reasons":reasons
 
         }
 
 
-    except:
+
+    except Exception:
 
         return None
 
 
 
 
+
+def btc_check():
+
+    try:
+
+        data=get_analysis("BTCUSDT")
+
+        if data and data["score"]>=5:
+
+            return "🟢 BTC vəziyyəti normal"
+
+        return "⚠️ BTC zəif"
+
+
+    except:
+
+        return "BTC analiz yoxdur"
+
+
+
+
+
+
 def scan():
 
-    result=[]
+    results=[]
 
 
-    info=client.get_ticker()
+    tickers=client.get_ticker()
 
 
-    for x in info:
+
+    for t in tickers:
 
 
-        symbol=x["symbol"]
+        symbol=t["symbol"]
+
 
 
         if not symbol.endswith("USDT"):
+
             continue
 
 
-        if any(
-            a in symbol
-            for a in BLOCKED
-        ):
+
+        if any(x in symbol for x in BLOCKED):
+
             continue
 
 
-        data=analyze(symbol)
+
+        data=get_analysis(symbol)
+
 
 
         if data and data["score"]>=6:
 
-            result.append(data)
+            results.append(data)
 
 
 
-    result.sort(
+    results.sort(
         key=lambda x:x["score"],
         reverse=True
     )
 
 
-    return result[:5]
+    return results[:8]
 
 
 
 
 
-def create_report():
-
+def report():
 
     coins=scan()
 
 
+    msg="🧠 AI CRYPTO ANALYST V2.2\n\n"
+
+    msg+=btc_check()
+
+    msg+="\n\n"
+
+
+
     if not coins:
 
-        return "Hazırda güclü fürsət yoxdur"
+        msg+="👀 Hazırda güclü fürsət yoxdur\n"
 
+        return msg
 
-
-    msg="🚀 SMART MARKET ANALİZ\n\n"
 
 
 
     for c in coins:
 
 
+        if c["score"]>=8:
+
+            status="🚀 FÜRSƏT"
+
+        else:
+
+            status="👀 İZLƏMƏ"
+
+
+
         msg+=f"""
-🔥 {c['symbol']}
+{status}
+
+{c['symbol']}
 
 Qiymət:
 {c['price']}
 
-24h Momentum:
-{c['change']}%
+Score:
+{c['score']}/10
 
 RSI:
 {c['rsi']}
 
-Score:
-{c['score']}/10
+Momentum:
+{c['change']}%
 
-Analiz:
-{', '.join(c['reasons'])}
+Səbəb:
+{", ".join(c['reasons'])}
 
 Plan:
-🟢 Hissəli giriş düşünülə bilər
-⚠️ Risk idarəsi vacibdir
+🟢 30% giriş
+🟡 geri çəkilmədə əlavə
+🔴 risk idarəsi vacib
 
 
 """
-
 
 
     return msg
@@ -270,20 +349,20 @@ Plan:
 
 def bot_loop():
 
-
     time.sleep(10)
 
 
     send_msg(
-        "🤖 AI Scanner V2.1 aktivdir"
+        "🤖 AI Crypto Analyst V2.2 başladı"
     )
+
 
 
     while True:
 
 
         send_msg(
-            create_report()
+            report()
         )
 
 
@@ -296,7 +375,7 @@ def bot_loop():
 @app.route("/")
 def home():
 
-    return "AI Crypto Bot Running"
+    return "AI Crypto Analyst Running"
 
 
 
