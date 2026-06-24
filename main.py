@@ -22,13 +22,16 @@ CHAT_ID = os.getenv("CHAT_ID")
 client = Client(API_KEY, API_SECRET)
 
 
-print("BOT START")
-print("CHAT:", CHAT_ID)
+# çıxarılacaq koinlər
+BLOCKED = [
+    "USDT",
+    "USDC",
+    "TUSD",
+    "FDUSD",
+    "PAX",
+    "BUSD"
+]
 
-
-# =========================
-# TELEGRAM
-# =========================
 
 def send_msg(text):
 
@@ -46,20 +49,13 @@ def send_msg(text):
         )
 
     except Exception as e:
-
         print(e)
 
 
 
-# =========================
-# ANALYSIS
-# =========================
-
-
-def analyze_coin(symbol):
+def analyze(symbol):
 
     try:
-
 
         candles = client.get_klines(
             symbol=symbol,
@@ -71,18 +67,20 @@ def analyze_coin(symbol):
         df = pd.DataFrame(
             candles,
             columns=[
-            "time",
-            "open",
-            "high",
-            "low",
-            "close",
+            "time","open","high",
+            "low","close",
             "volume",
-            "x1","x2","x3","x4","x5","x6"
+            "x1","x2","x3",
+            "x4","x5","x6"
             ]
         )
 
 
         df["close"] = df["close"].astype(float)
+        df["volume"] = df["volume"].astype(float)
+
+
+        price = df["close"].iloc[-1]
 
 
         rsi = ta.momentum.RSIIndicator(
@@ -91,46 +89,64 @@ def analyze_coin(symbol):
 
 
         ema20 = ta.trend.EMAIndicator(
-            df["close"],
-            20
+            df["close"],20
         ).ema_indicator().iloc[-1]
 
 
         ema50 = ta.trend.EMAIndicator(
-            df["close"],
-            50
+            df["close"],50
         ).ema_indicator().iloc[-1]
 
 
-        price = df["close"].iloc[-1]
+        volume_now = df["volume"].iloc[-1]
+        volume_avg = df["volume"].mean()
+
 
 
         score = 0
+        reasons=[]
 
-        reasons = []
 
 
         if ema20 > ema50:
-
-            score += 3
+            score +=3
             reasons.append(
                 "Trend yukarı"
             )
 
 
         if rsi < 70:
-
-            score += 2
+            score +=2
             reasons.append(
-                "RSI normal"
+                "RSI sağlam"
+            )
+
+        else:
+            reasons.append(
+                "RSI yüksək risk"
             )
 
 
-        if price > ema20:
-
-            score += 2
+        if volume_now > volume_avg:
+            score+=3
             reasons.append(
-                "Qiymət güclü"
+                "Volume artımı"
+            )
+
+
+
+        change = (
+            (price-df["close"].iloc[-5])
+            /
+            df["close"].iloc[-5]
+        )*100
+
+
+
+        if change > 2:
+            score+=1
+            reasons.append(
+                "Momentum güclü"
             )
 
 
@@ -141,58 +157,50 @@ def analyze_coin(symbol):
         "price":price,
         "rsi":round(rsi,2),
         "score":score,
+        "change":round(change,2),
         "reasons":reasons
 
         }
 
 
-
-    except Exception as e:
-
-        print(symbol,e)
+    except:
 
         return None
 
 
 
-# =========================
-# MARKET SCAN
-# =========================
-
 
 def scan():
-
 
     result=[]
 
 
-    tickers = client.get_ticker()
+    info=client.get_ticker()
 
 
-    for t in tickers:
+    for x in info:
 
 
-        symbol=t["symbol"]
+        symbol=x["symbol"]
 
 
         if not symbol.endswith("USDT"):
             continue
 
 
-        try:
+        if any(
+            a in symbol
+            for a in BLOCKED
+        ):
+            continue
 
 
-            data=analyze_coin(symbol)
+        data=analyze(symbol)
 
 
-            if data and data["score"]>=5:
+        if data and data["score"]>=6:
 
-                result.append(data)
-
-
-        except:
-
-            pass
+            result.append(data)
 
 
 
@@ -206,12 +214,9 @@ def scan():
 
 
 
-# =========================
-# REPORT
-# =========================
 
 
-def report():
+def create_report():
 
 
     coins=scan()
@@ -219,24 +224,42 @@ def report():
 
     if not coins:
 
-        return "Hazırda güclü siqnal yoxdur"
+        return "Hazırda güclü fürsət yoxdur"
 
 
 
-    msg="🧠 AI MARKET ANALİZ\n\n"
+    msg="🚀 SMART MARKET ANALİZ\n\n"
 
 
 
     for c in coins:
 
 
-        msg+=(
-        f"🚀 {c['symbol']}\n"
-        f"Qiymət: {c['price']}\n"
-        f"RSI: {c['rsi']}\n"
-        f"Score: {c['score']}/10\n"
-        f"Səbəb: {', '.join(c['reasons'])}\n\n"
-        )
+        msg+=f"""
+🔥 {c['symbol']}
+
+Qiymət:
+{c['price']}
+
+24h Momentum:
+{c['change']}%
+
+RSI:
+{c['rsi']}
+
+Score:
+{c['score']}/10
+
+Analiz:
+{', '.join(c['reasons'])}
+
+Plan:
+🟢 Hissəli giriş düşünülə bilər
+⚠️ Risk idarəsi vacibdir
+
+
+"""
+
 
 
     return msg
@@ -244,19 +267,15 @@ def report():
 
 
 
-# =========================
-# AUTO
-# =========================
 
-
-def loop():
+def bot_loop():
 
 
     time.sleep(10)
 
 
     send_msg(
-        "🤖 AI Scanner V2 başladı"
+        "🤖 AI Scanner V2.1 aktivdir"
     )
 
 
@@ -264,7 +283,7 @@ def loop():
 
 
         send_msg(
-            report()
+            create_report()
         )
 
 
@@ -273,22 +292,16 @@ def loop():
 
 
 
-# =========================
-# FLASK
-# =========================
-
 
 @app.route("/")
-
 def home():
 
-    return "AI Crypto Bot V2 Running"
-
+    return "AI Crypto Bot Running"
 
 
 
 threading.Thread(
-    target=loop,
+    target=bot_loop,
     daemon=True
 ).start()
 
