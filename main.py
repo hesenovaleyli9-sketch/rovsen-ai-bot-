@@ -2,17 +2,15 @@ import os
 import time
 import threading
 import requests
+import pandas as pd
 
 from flask import Flask
 from binance.client import Client
+import ta
 
 
 app = Flask(__name__)
 
-
-# =========================
-# ENV
-# =========================
 
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_API_SECRET")
@@ -24,7 +22,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 client = Client(API_KEY, API_SECRET)
 
 
-print("TOKEN CHECK:", TELEGRAM_TOKEN[:10] if TELEGRAM_TOKEN else "NO TOKEN")
+print("BOT START")
 print("CHAT:", CHAT_ID)
 
 
@@ -35,9 +33,10 @@ print("CHAT:", CHAT_ID)
 def send_msg(text):
 
     try:
+
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
-        r = requests.post(
+        requests.post(
             url,
             data={
                 "chat_id": CHAT_ID,
@@ -46,145 +45,197 @@ def send_msg(text):
             timeout=10
         )
 
-        print("TG:", r.text)
-
     except Exception as e:
-        print("Telegram error:", e)
+
+        print(e)
 
 
 
 # =========================
-# MARKET SCANNER
+# ANALYSIS
 # =========================
 
 
-def scan_market():
-
-    results = []
+def analyze_coin(symbol):
 
     try:
 
-        tickers = client.get_ticker()
 
-
-        for coin in tickers:
-
-            symbol = coin["symbol"]
-
-
-            if not symbol.endswith("USDT"):
-                continue
-
-
-            if any(x in symbol for x in [
-                "UP",
-                "DOWN",
-                "BULL",
-                "BEAR"
-            ]):
-                continue
-
-
-
-            try:
-
-                change = float(
-                    coin["priceChangePercent"]
-                )
-
-
-                volume = float(
-                    coin["quoteVolume"]
-                )
-
-
-                price = float(
-                    coin["lastPrice"]
-                )
-
-
-                score = 0
-
-
-                if change > 3:
-                    score += 3
-
-
-                if volume > 10000000:
-                    score += 3
-
-
-                if change > 7:
-                    score += 2
-
-
-                if score >= 5:
-
-
-                    results.append({
-
-                        "symbol": symbol,
-                        "price": price,
-                        "change": change,
-                        "volume": volume,
-                        "score": score
-
-                    })
-
-
-            except:
-                pass
-
-
-
-        results.sort(
-            key=lambda x:x["score"],
-            reverse=True
+        candles = client.get_klines(
+            symbol=symbol,
+            interval="15m",
+            limit=100
         )
 
 
-        return results[:10]
+        df = pd.DataFrame(
+            candles,
+            columns=[
+            "time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "x1","x2","x3","x4","x5","x6"
+            ]
+        )
+
+
+        df["close"] = df["close"].astype(float)
+
+
+        rsi = ta.momentum.RSIIndicator(
+            df["close"]
+        ).rsi().iloc[-1]
+
+
+        ema20 = ta.trend.EMAIndicator(
+            df["close"],
+            20
+        ).ema_indicator().iloc[-1]
+
+
+        ema50 = ta.trend.EMAIndicator(
+            df["close"],
+            50
+        ).ema_indicator().iloc[-1]
+
+
+        price = df["close"].iloc[-1]
+
+
+        score = 0
+
+        reasons = []
+
+
+        if ema20 > ema50:
+
+            score += 3
+            reasons.append(
+                "Trend yukarı"
+            )
+
+
+        if rsi < 70:
+
+            score += 2
+            reasons.append(
+                "RSI normal"
+            )
+
+
+        if price > ema20:
+
+            score += 2
+            reasons.append(
+                "Qiymət güclü"
+            )
+
+
+
+        return {
+
+        "symbol":symbol,
+        "price":price,
+        "rsi":round(rsi,2),
+        "score":score,
+        "reasons":reasons
+
+        }
 
 
 
     except Exception as e:
 
-        print("SCAN ERROR:",e)
+        print(symbol,e)
 
-        return []
-
+        return None
 
 
 
 # =========================
-# FORMAT
+# MARKET SCAN
 # =========================
 
 
-def create_report():
+def scan():
 
-    coins = scan_market()
+
+    result=[]
+
+
+    tickers = client.get_ticker()
+
+
+    for t in tickers:
+
+
+        symbol=t["symbol"]
+
+
+        if not symbol.endswith("USDT"):
+            continue
+
+
+        try:
+
+
+            data=analyze_coin(symbol)
+
+
+            if data and data["score"]>=5:
+
+                result.append(data)
+
+
+        except:
+
+            pass
+
+
+
+    result.sort(
+        key=lambda x:x["score"],
+        reverse=True
+    )
+
+
+    return result[:5]
+
+
+
+# =========================
+# REPORT
+# =========================
+
+
+def report():
+
+
+    coins=scan()
 
 
     if not coins:
 
-        return "Hazırda güclü fürsət tapılmadı"
+        return "Hazırda güclü siqnal yoxdur"
 
 
 
-    msg = "🚀 MARKET FÜRSƏTLƏR\n\n"
+    msg="🧠 AI MARKET ANALİZ\n\n"
 
 
 
     for c in coins:
 
 
-        msg += (
-            f"🔥 {c['symbol']}\n"
-            f"Qiymət: {c['price']}\n"
-            f"24h: {c['change']}%\n"
-            f"Volume: {round(c['volume']/1000000,2)}M\n"
-            f"Score: {c['score']}/10\n\n"
+        msg+=(
+        f"🚀 {c['symbol']}\n"
+        f"Qiymət: {c['price']}\n"
+        f"RSI: {c['rsi']}\n"
+        f"Score: {c['score']}/10\n"
+        f"Səbəb: {', '.join(c['reasons'])}\n\n"
         )
 
 
@@ -194,105 +245,27 @@ def create_report():
 
 
 # =========================
-# TELEGRAM COMMAND CHECK
+# AUTO
 # =========================
 
 
-def telegram_loop():
-
-    last_id = 0
-
-
-    while True:
-
-
-        try:
-
-            url = (
-            f"https://api.telegram.org/"
-            f"bot{TELEGRAM_TOKEN}/getUpdates"
-            )
-
-
-            data = requests.get(
-                url,
-                timeout=20
-            ).json()
-
-
-
-            for item in data.get("result",[]):
-
-
-                if item["update_id"] <= last_id:
-                    continue
-
-
-                last_id = item["update_id"]
-
-
-
-                text = item.get(
-                    "message",
-                    {}
-                ).get(
-                    "text",
-                    ""
-                )
-
-
-                if text == "/scan":
-
-
-                    send_msg(
-                        create_report()
-                    )
-
-
-
-                elif text == "/top":
-
-
-                    send_msg(
-                        create_report()
-                    )
-
-
-
-        except Exception as e:
-
-            print(e)
-
-
-
-        time.sleep(5)
-
-
-
-
-# =========================
-# AUTO SCAN
-# =========================
-
-
-def auto_scan():
+def loop():
 
 
     time.sleep(10)
 
 
     send_msg(
-        "🤖 Scanner başladı"
+        "🤖 AI Scanner V2 başladı"
     )
 
 
     while True:
 
 
-        report = create_report()
-
-
-        send_msg(report)
+        send_msg(
+            report()
+        )
 
 
         time.sleep(300)
@@ -309,40 +282,24 @@ def auto_scan():
 
 def home():
 
-    return "AI Crypto Scanner Running"
+    return "AI Crypto Bot V2 Running"
 
-
-
-
-# =========================
-# START
-# =========================
-
-
-threading.Thread(
-    target=auto_scan,
-    daemon=True
-).start()
 
 
 
 threading.Thread(
-    target=telegram_loop,
+    target=loop,
     daemon=True
 ).start()
-
-
-
-port = int(
-    os.environ.get(
-        "PORT",
-        10000
-    )
-)
 
 
 
 app.run(
     host="0.0.0.0",
-    port=port
+    port=int(
+        os.getenv(
+            "PORT",
+            10000
+        )
+    )
 )
