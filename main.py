@@ -36,7 +36,7 @@ def send_msg(text):
 
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
 
-        r = requests.get(
+        response = requests.get(
             url,
             params={
                 "chat_id": CHAT_ID,
@@ -45,48 +45,51 @@ def send_msg(text):
             timeout=10
         )
 
-        print("TELEGRAM STATUS:", r.status_code)
-        print("TELEGRAM RESPONSE:", r.text)
+        print("TELEGRAM STATUS:", response.status_code)
+        print("TELEGRAM RESPONSE:", response.text)
 
 
     except Exception as e:
 
-        print("ERROR:", e)
+        print("TELEGRAM ERROR:", e)
 
 
 
 def bot_loop():
 
-    time.sleep(5)
-
     print("BOT LOOP STARTED")
 
-    send_msg("🤖 Signal Bot STARTED")
+    time.sleep(5)
+
+    send_msg("🤖 SIGNAL BOT STARTED")
 
 
     while True:
 
-        msg = "📊 Market Update\n\n"
+        message = "📊 MARKET UPDATE\n\n"
 
 
-        for s in SYMBOLS:
+        for symbol in SYMBOLS:
 
             try:
 
-                price = client.get_symbol_ticker(symbol=s)["price"]
+                price = client.get_symbol_ticker(
+                    symbol=symbol
+                )["price"]
 
-                msg += f"{s}: {price}\n"
+
+                message += f"{symbol}: {price}\n"
 
 
             except Exception as e:
 
                 print("BINANCE ERROR:", e)
 
-                msg += f"{s}: ERROR\n"
+                message += f"{symbol}: ERROR\n"
 
 
 
-        send_msg(msg)
+        send_msg(message)
 
         time.sleep(60)
 
@@ -102,13 +105,20 @@ def home():
 if __name__ == "__main__":
 
 
-    threading.Thread(
-        target=bot_loop,
-        daemon=True
-    ).start()
+    print("STARTING BOT THREAD")
 
 
-    port = int(os.environ.get("PORT",10000))
+    thread = threading.Thread(
+        target=bot_loop
+    )
+
+
+    thread.start()
+
+
+    port = int(
+        os.environ.get("PORT",10000)
+    )
 
 
     app.run(
