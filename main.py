@@ -1,80 +1,85 @@
 import os
 import time
-import requests
 import threading
+import requests
 from flask import Flask
 from binance.client import Client
 
 app = Flask(__name__)
 
-# =========================
-# ENV VARIABLES
-# =========================
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_API_SECRET")
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-# =========================
-# BINANCE CLIENT
-# =========================
+print("TOKEN CHECK:", TELEGRAM_TOKEN[:10] if TELEGRAM_TOKEN else "NO TOKEN")
+print("CHAT CHECK:", CHAT_ID)
+
 client = Client(API_KEY, API_SECRET)
 
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 
-# =========================
-# TELEGRAM FUNCTION
-# =========================
+
 def send_msg(text):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        requests.get(url, params={
-            "chat_id": CHAT_ID,
-            "text": text
-        })
-    except Exception as e:
-        print("Telegram error:", e)
 
-# =========================
-# BOT LOOP
-# =========================
+        r = requests.get(
+            url,
+            params={
+                "chat_id": CHAT_ID,
+                "text": text
+            },
+            timeout=10
+        )
+
+        print("TELEGRAM STATUS:", r.status_code)
+        print("TELEGRAM RESPONSE:", r.text)
+
+    except Exception as e:
+        print("TELEGRAM ERROR:", e)
+
+
 def bot_loop():
     time.sleep(5)
 
-    print("BOT LOOP STARTED")
-
-    # TEST MESSAGE
-    send_msg("🔥 BOT SUCCESSFULLY STARTED ON RENDER")
+    send_msg("🤖 Signal Bot STARTED")
 
     while True:
-        msg = "📊 MARKET UPDATE:\n\n"
+        msg = "📊 Market Update:\n\n"
 
-        for symbol in SYMBOLS:
+        for s in SYMBOLS:
             try:
-                price = client.get_symbol_ticker(symbol=symbol)["price"]
-                msg += f"{symbol}: {price}\n"
-            except Exception:
-                msg += f"{symbol}: error\n"
+                price = client.get_symbol_ticker(symbol=s)["price"]
+                msg += f"{s}: {price}\n"
+
+            except Exception as e:
+                msg += f"{s}: ERROR\n"
+                print("BINANCE ERROR:", e)
 
         send_msg(msg)
+
         time.sleep(60)
 
-# =========================
-# FLASK ROUTE
-# =========================
+
 @app.route("/")
 def home():
-    return "Bot is running"
+    return "Bot Running"
 
-# =========================
-# START BOT THREAD
-# =========================
-threading.Thread(target=bot_loop, daemon=True).start()
 
-# =========================
-# RUN SERVER (RENDER FIX)
-# =========================
 if __name__ == "__main__":
+
+    thread = threading.Thread(
+        target=bot_loop,
+        daemon=True
+    )
+
+    thread.start()
+
     port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
