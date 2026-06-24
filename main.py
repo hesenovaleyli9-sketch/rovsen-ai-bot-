@@ -45,27 +45,10 @@ def analyze(symbol):
         )
 
 
-        df = pd.DataFrame(
-            candles,
-            columns=[
-                "time",
-                "open",
-                "high",
-                "low",
-                "close",
-                "volume",
-                "x1",
-                "x2",
-                "x3",
-                "x4",
-                "x5",
-                "x6"
-            ]
-        )
+        df = pd.DataFrame(candles)
 
-
-        df["close"] = df["close"].astype(float)
-        df["volume"] = df["volume"].astype(float)
+        df["close"] = df[4].astype(float)
+        df["volume"] = df[5].astype(float)
 
 
         price = df["close"].iloc[-1]
@@ -78,11 +61,13 @@ def analyze(symbol):
 
         volume = df["volume"].iloc[-1]
 
+
         score = 0
 
 
         if rsi > 55:
             score += 3
+
 
         if volume > df["volume"].mean():
             score += 3
@@ -92,13 +77,15 @@ def analyze(symbol):
             score += 2
 
 
+
         return price, rsi, volume, score
 
 
-    except:
+    except Exception as e:
+
+        print(symbol,e)
 
         return None
-
 
 
 
@@ -112,77 +99,76 @@ def market_scan():
         try:
 
 
-            exchange = client.get_exchange_info()
+            info = client.get_exchange_info()
 
 
-            symbols = []
+            symbols=[]
 
 
-            for x in exchange["symbols"]:
+            for x in info["symbols"]:
+
 
                 if (
-                    x["quoteAsset"] == "USDT"
-                    and x["status"] == "TRADING"
+                    x["quoteAsset"]=="USDT"
+                    and x["status"]=="TRADING"
                 ):
+
                     symbols.append(
                         x["symbol"]
                     )
 
 
 
-            opportunities = []
+            results=[]
 
 
-            for s in symbols[:300]:
+            for s in symbols[:500]:
 
 
-                result = analyze(s)
+                data=analyze(s)
 
 
-                if result:
+                if data:
 
 
-                    price,rsi,vol,score = result
+                    price,rsi,vol,score=data
 
 
-                    if score >= 7:
+                    if score>=7:
 
 
-                        opportunities.append(
-
+                        results.append(
                             (
-                            score,
-                            s,
-                            price,
-                            rsi
+                                score,
+                                s,
+                                price,
+                                rsi
                             )
-
                         )
 
 
 
-            opportunities.sort(
+            results.sort(
                 reverse=True
             )
 
 
-
-            msg = "🧠 AI CRYPTO ANALYST V3.1\n\n"
-
+            msg="🧠 AI CRYPTO ANALYST V4\n\n"
 
 
-            if opportunities:
+
+            if results:
 
 
-                for x in opportunities[:10]:
+                for r in results[:15]:
 
 
                     msg += (
-                        f"🚀 {x[1]}\n"
-                        f"Qiymət: {x[2]}\n"
-                        f"RSI: {round(x[3],2)}\n"
-                        f"Score: {x[0]}/8\n"
-                        f"Status: İzləmə / Fürsət\n\n"
+                    f"🚀 {r[1]}\n"
+                    f"💰 Qiymət: {round(r[2],6)}\n"
+                    f"📊 RSI: {round(r[3],2)}\n"
+                    f"⭐ Score: {r[0]}/8\n"
+                    f"👀 Nəzarət / Fürsət\n\n"
                     )
 
 
@@ -190,10 +176,9 @@ def market_scan():
 
 
                 msg += (
-                    "👀 Hazırda güclü fürsət yoxdur\n"
-                    "Bazar izlənilir..."
+                "⏳ Güclü fürsət tapılmadı\n"
+                "Bazar skan edilir..."
                 )
-
 
 
             send(msg)
@@ -202,7 +187,7 @@ def market_scan():
 
         except Exception as e:
 
-            print(e)
+            print("SCAN ERROR",e)
 
 
 
@@ -211,25 +196,28 @@ def market_scan():
 
 
 
-
 @app.route("/")
 def home():
 
-    return "AI BOT AKTIV"
+    return "AI CRYPTO BOT RUNNING"
+
+
 
 
 
 def start():
 
-    thread = threading.Thread(
+    t=threading.Thread(
         target=market_scan
     )
 
-    thread.start()
+    t.start()
 
 
 
-if __name__ == "__main__":
+
+
+if __name__=="__main__":
 
 
     print("BOT STARTED")
