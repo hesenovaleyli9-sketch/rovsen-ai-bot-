@@ -21,16 +21,20 @@ bot = Bot(token=TOKEN)
 client = Client()
 
 
-def send(text):
+
+def send(msg):
 
     try:
+
         bot.send_message(
             chat_id=CHAT_ID,
-            text=text
+            text=msg
         )
 
     except Exception as e:
-        print("Telegram error:", e)
+
+        print("Telegram:", e)
+
 
 
 
@@ -41,56 +45,91 @@ def analyze(symbol):
         candles = client.get_klines(
             symbol=symbol,
             interval="1h",
-            limit=100
+            limit=150
         )
 
 
         df = pd.DataFrame(candles)
 
+
         df["close"] = df[4].astype(float)
         df["volume"] = df[5].astype(float)
 
 
-        price = df["close"].iloc[-1]
+        close = df["close"]
+        volume = df["volume"]
+
+
+        price = close.iloc[-1]
 
 
         rsi = ta.momentum.RSIIndicator(
-            df["close"]
+            close
         ).rsi().iloc[-1]
 
 
-        volume = df["volume"].iloc[-1]
+        ema20 = close.ewm(
+            span=20
+        ).mean().iloc[-1]
+
+
+        ema50 = close.ewm(
+            span=50
+        ).mean().iloc[-1]
+
+
+        vol_now = volume.iloc[-1]
+
+        vol_avg = volume.mean()
 
 
         score = 0
 
+        reasons = []
 
-        if rsi > 55:
+
+        if ema20 > ema50:
+
             score += 3
+            reasons.append("Trend yuxarı")
 
 
-        if volume > df["volume"].mean():
-            score += 3
+        if price > ema20:
 
-
-        if price > df["close"].rolling(20).mean().iloc[-1]:
             score += 2
+            reasons.append("Qiymət güclü")
 
 
+        if 50 < rsi < 70:
 
-        return price, rsi, volume, score
+            score += 2
+            reasons.append("Momentum yaxşı")
 
 
-    except Exception as e:
+        if vol_now > vol_avg:
 
-        print(symbol,e)
+            score += 2
+            reasons.append("Volume artıb")
+
+
+        return (
+            price,
+            rsi,
+            score,
+            reasons
+        )
+
+
+    except:
 
         return None
 
 
 
 
-def market_scan():
+
+
+def scanner():
 
 
     while True:
@@ -102,7 +141,7 @@ def market_scan():
             info = client.get_exchange_info()
 
 
-            symbols=[]
+            coins=[]
 
 
             for x in info["symbols"]:
@@ -113,62 +152,67 @@ def market_scan():
                     and x["status"]=="TRADING"
                 ):
 
-                    symbols.append(
+                    coins.append(
                         x["symbol"]
                     )
 
 
 
-            results=[]
+            signals=[]
 
 
-            for s in symbols[:500]:
+
+            for coin in coins[:400]:
 
 
-                data=analyze(s)
+                data = analyze(coin)
 
 
                 if data:
 
 
-                    price,rsi,vol,score=data
+                    price,rsi,score,reasons=data
 
 
-                    if score>=7:
+
+                    if score >=7:
 
 
-                        results.append(
+                        signals.append(
                             (
-                                score,
-                                s,
-                                price,
-                                rsi
+                            score,
+                            coin,
+                            price,
+                            rsi,
+                            reasons
                             )
                         )
 
 
 
-            results.sort(
+            signals.sort(
                 reverse=True
             )
 
 
-            msg="🧠 AI CRYPTO ANALYST V4\n\n"
+
+            msg = "🧠 AI CRYPTO ANALYST V2.5\n\n"
 
 
 
-            if results:
+            if signals:
 
 
-                for r in results[:15]:
+                for s in signals[:10]:
 
 
                     msg += (
-                    f"🚀 {r[1]}\n"
-                    f"💰 Qiymət: {round(r[2],6)}\n"
-                    f"📊 RSI: {round(r[3],2)}\n"
-                    f"⭐ Score: {r[0]}/8\n"
-                    f"👀 Nəzarət / Fürsət\n\n"
+                    f"🚀 {s[1]}\n"
+                    f"💰 Qiymət: {round(s[2],6)}\n"
+                    f"📊 RSI: {round(s[3],2)}\n"
+                    f"⭐ Güc: {s[0]}/9\n"
+                    f"✅ {', '.join(s[4])}\n"
+                    f"🎯 STATUS: İzləmə / Giriş yaxın\n\n"
                     )
 
 
@@ -176,9 +220,10 @@ def market_scan():
 
 
                 msg += (
-                "⏳ Güclü fürsət tapılmadı\n"
-                "Bazar skan edilir..."
+                "⏳ Güclü setup yoxdur\n"
+                "Bazar analiz edilir..."
                 )
+
 
 
             send(msg)
@@ -187,7 +232,7 @@ def market_scan():
 
         except Exception as e:
 
-            print("SCAN ERROR",e)
+            print(e)
 
 
 
@@ -196,10 +241,12 @@ def market_scan():
 
 
 
+
+
 @app.route("/")
 def home():
 
-    return "AI CRYPTO BOT RUNNING"
+    return "AI V2.5 ACTIVE"
 
 
 
@@ -208,8 +255,10 @@ def home():
 def start():
 
     t=threading.Thread(
-        target=market_scan
+        target=scanner
     )
+
+    t.daemon=True
 
     t.start()
 
@@ -220,7 +269,7 @@ def start():
 if __name__=="__main__":
 
 
-    print("BOT STARTED")
+    print("AI V2.5 STARTED")
 
 
     start()
