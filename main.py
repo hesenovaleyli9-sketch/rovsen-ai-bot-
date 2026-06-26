@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import asyncio
 import pandas as pd
 
 from flask import Flask
@@ -16,24 +17,30 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 
-bot = Bot(token=TOKEN)
+bot = Bot(TOKEN)
 
 client = Client()
 
 
 
-def send(msg):
+def send(message):
+
+    async def send_async():
+
+        await bot.send_message(
+            chat_id=CHAT_ID,
+            text=message
+        )
+
 
     try:
 
-        bot.send_message(
-            chat_id=CHAT_ID,
-            text=msg
-        )
+        asyncio.run(send_async())
+
 
     except Exception as e:
 
-        print("Telegram:", e)
+        print("Telegram error:", e)
 
 
 
@@ -45,19 +52,15 @@ def analyze(symbol):
         candles = client.get_klines(
             symbol=symbol,
             interval="1h",
-            limit=150
+            limit=120
         )
 
 
         df = pd.DataFrame(candles)
 
 
-        df["close"] = df[4].astype(float)
-        df["volume"] = df[5].astype(float)
-
-
-        close = df["close"]
-        volume = df["volume"]
+        close = df[4].astype(float)
+        volume = df[5].astype(float)
 
 
         price = close.iloc[-1]
@@ -78,11 +81,6 @@ def analyze(symbol):
         ).mean().iloc[-1]
 
 
-        vol_now = volume.iloc[-1]
-
-        vol_avg = volume.mean()
-
-
         score = 0
 
         reasons = []
@@ -91,25 +89,25 @@ def analyze(symbol):
         if ema20 > ema50:
 
             score += 3
-            reasons.append("Trend yuxarı")
+            reasons.append("Trend UP")
 
 
         if price > ema20:
 
             score += 2
-            reasons.append("Qiymət güclü")
+            reasons.append("Qiymet guclu")
 
 
         if 50 < rsi < 70:
 
             score += 2
-            reasons.append("Momentum yaxşı")
+            reasons.append("Momentum")
 
 
-        if vol_now > vol_avg:
+        if volume.iloc[-1] > volume.mean():
 
             score += 2
-            reasons.append("Volume artıb")
+            reasons.append("Volume artib")
 
 
         return (
@@ -120,10 +118,11 @@ def analyze(symbol):
         )
 
 
-    except:
+    except Exception as e:
+
+        print(symbol,e)
 
         return None
-
 
 
 
@@ -162,7 +161,7 @@ def scanner():
 
 
 
-            for coin in coins[:400]:
+            for coin in coins[:300]:
 
 
                 data = analyze(coin)
@@ -175,7 +174,7 @@ def scanner():
 
 
 
-                    if score >=7:
+                    if score >= 7:
 
 
                         signals.append(
@@ -207,12 +206,14 @@ def scanner():
 
 
                     msg += (
+
                     f"🚀 {s[1]}\n"
                     f"💰 Qiymət: {round(s[2],6)}\n"
                     f"📊 RSI: {round(s[3],2)}\n"
-                    f"⭐ Güc: {s[0]}/9\n"
+                    f"⭐ Score: {s[0]}/9\n"
                     f"✅ {', '.join(s[4])}\n"
-                    f"🎯 STATUS: İzləmə / Giriş yaxın\n\n"
+                    f"🎯 Status: Nəzarət / Fürsət\n\n"
+
                     )
 
 
@@ -220,8 +221,8 @@ def scanner():
 
 
                 msg += (
-                "⏳ Güclü setup yoxdur\n"
-                "Bazar analiz edilir..."
+                    "⏳ Güclü setup yoxdur\n"
+                    "Bazar skan edilir..."
                 )
 
 
@@ -232,7 +233,7 @@ def scanner():
 
         except Exception as e:
 
-            print(e)
+            print("SCAN ERROR:", e)
 
 
 
@@ -243,10 +244,12 @@ def scanner():
 
 
 
+
 @app.route("/")
 def home():
 
-    return "AI V2.5 ACTIVE"
+    return "AI V2.5 RUNNING"
+
 
 
 
@@ -254,13 +257,16 @@ def home():
 
 def start():
 
-    t=threading.Thread(
+
+    t = threading.Thread(
         target=scanner
     )
+
 
     t.daemon=True
 
     t.start()
+
 
 
 
