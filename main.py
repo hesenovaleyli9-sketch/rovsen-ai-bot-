@@ -162,7 +162,7 @@ def analyze(symbol):
 
 def scanner():
 
-
+print("SCANNER STARTED")
     while True:
 
 
@@ -199,7 +199,7 @@ def scanner():
 
             for coin in coins[:300]:
 
-
+             print("Checking:", coin)
                 data = analyze(coin)
 
 
