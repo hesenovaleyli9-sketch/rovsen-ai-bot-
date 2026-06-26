@@ -153,6 +153,7 @@ def analyze(symbol):
     except Exception as e:
 
         print(
+            "ANALYZE ERROR",
             symbol,
             e
         )
@@ -180,6 +181,12 @@ def scanner():
             info = client.get_exchange_info()
 
 
+            print(
+                "BINANCE CONNECTED"
+            )
+
+
+
             coins = []
 
 
@@ -192,9 +199,17 @@ def scanner():
                     and x["status"] == "TRADING"
                 ):
 
+
                     coins.append(
                         x["symbol"]
                     )
+
+
+
+            print(
+                "TOTAL COINS:",
+                len(coins)
+            )
 
 
 
@@ -238,7 +253,6 @@ def scanner():
 
 
 
-
             signals.sort(
                 reverse=True
             )
@@ -263,8 +277,7 @@ def scanner():
                         f"💰 Qiymət: {round(s[2],6)}\n"
                         f"📊 RSI: {round(s[3],2)}\n"
                         f"⭐ Score: {s[0]}/9\n"
-                        f"✅ {', '.join(s[4])}\n"
-                        f"🎯 Status: Fürsət izlənilir\n\n"
+                        f"✅ {', '.join(s[4])}\n\n"
 
                     )
 
