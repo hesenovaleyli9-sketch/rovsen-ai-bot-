@@ -270,6 +270,7 @@ def scanner():
 
 
 
+            print(msg)
             send(msg)
 
 
@@ -284,7 +285,7 @@ def scanner():
 
 
 
-        time.sleep(1800)
+        time.sleep(60)
 
 
 
