@@ -48,7 +48,10 @@ def send(message):
 
     except Exception as e:
 
-        print("Telegram error:", e)
+        print(
+            "Telegram error:",
+            e
+        )
 
 
 
@@ -162,7 +165,12 @@ def analyze(symbol):
 
 def scanner():
 
-print("SCANNER STARTED")
+
+    print(
+        "SCANNER STARTED"
+    )
+
+
     while True:
 
 
@@ -172,7 +180,7 @@ print("SCANNER STARTED")
             info = client.get_exchange_info()
 
 
-            coins=[]
+            coins = []
 
 
 
@@ -180,10 +188,9 @@ print("SCANNER STARTED")
 
 
                 if (
-                    x["quoteAsset"]=="USDT"
-                    and x["status"]=="TRADING"
+                    x["quoteAsset"] == "USDT"
+                    and x["status"] == "TRADING"
                 ):
-
 
                     coins.append(
                         x["symbol"]
@@ -191,15 +198,20 @@ print("SCANNER STARTED")
 
 
 
-
-            signals=[]
-
+            signals = []
 
 
 
             for coin in coins[:300]:
 
-             print("Checking:", coin)
+
+                print(
+                    "Checking:",
+                    coin
+                )
+
+
+
                 data = analyze(coin)
 
 
@@ -207,7 +219,7 @@ print("SCANNER STARTED")
                 if data:
 
 
-                    price,rsi,score,reasons=data
+                    price, rsi, score, reasons = data
 
 
 
@@ -233,11 +245,9 @@ print("SCANNER STARTED")
 
 
 
-
             msg = (
                 "🧠 AI CRYPTO ANALYST V2.5\n\n"
             )
-
 
 
 
@@ -254,10 +264,9 @@ print("SCANNER STARTED")
                         f"📊 RSI: {round(s[3],2)}\n"
                         f"⭐ Score: {s[0]}/9\n"
                         f"✅ {', '.join(s[4])}\n"
-                        f"🎯 Status: Nəzarət / Fürsət\n\n"
+                        f"🎯 Status: Fürsət izlənilir\n\n"
 
                     )
-
 
 
             else:
@@ -271,6 +280,8 @@ print("SCANNER STARTED")
 
 
             print(msg)
+
+
             send(msg)
 
 
@@ -303,7 +314,6 @@ def home():
 
 
 
-
 def start():
 
 
@@ -314,6 +324,7 @@ def start():
 
     t.daemon = True
 
+
     t.start()
 
 
@@ -322,7 +333,7 @@ def start():
 
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
 
 
     print(
@@ -331,6 +342,7 @@ if __name__=="__main__":
 
 
     start()
+
 
 
     app.run(
