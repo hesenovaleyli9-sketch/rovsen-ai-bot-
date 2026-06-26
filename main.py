@@ -35,12 +35,21 @@ def send(message):
 
     try:
 
-        asyncio.run(send_async())
+        loop = asyncio.new_event_loop()
+
+        asyncio.set_event_loop(loop)
+
+        loop.run_until_complete(
+            send_async()
+        )
+
+        loop.close()
 
 
     except Exception as e:
 
         print("Telegram error:", e)
+
 
 
 
@@ -60,6 +69,7 @@ def analyze(symbol):
 
 
         close = df[4].astype(float)
+
         volume = df[5].astype(float)
 
 
@@ -81,33 +91,51 @@ def analyze(symbol):
         ).mean().iloc[-1]
 
 
+
         score = 0
 
         reasons = []
 
 
+
         if ema20 > ema50:
 
             score += 3
-            reasons.append("Trend UP")
+
+            reasons.append(
+                "Trend UP"
+            )
+
 
 
         if price > ema20:
 
             score += 2
-            reasons.append("Qiymet guclu")
+
+            reasons.append(
+                "Qiymet guclu"
+            )
+
 
 
         if 50 < rsi < 70:
 
             score += 2
-            reasons.append("Momentum")
+
+            reasons.append(
+                "Momentum"
+            )
+
 
 
         if volume.iloc[-1] > volume.mean():
 
             score += 2
-            reasons.append("Volume artib")
+
+            reasons.append(
+                "Volume artib"
+            )
+
 
 
         return (
@@ -118,9 +146,13 @@ def analyze(symbol):
         )
 
 
+
     except Exception as e:
 
-        print(symbol,e)
+        print(
+            symbol,
+            e
+        )
 
         return None
 
@@ -143,6 +175,7 @@ def scanner():
             coins=[]
 
 
+
             for x in info["symbols"]:
 
 
@@ -151,9 +184,11 @@ def scanner():
                     and x["status"]=="TRADING"
                 ):
 
+
                     coins.append(
                         x["symbol"]
                     )
+
 
 
 
@@ -161,10 +196,12 @@ def scanner():
 
 
 
+
             for coin in coins[:300]:
 
 
                 data = analyze(coin)
+
 
 
                 if data:
@@ -179,13 +216,14 @@ def scanner():
 
                         signals.append(
                             (
-                            score,
-                            coin,
-                            price,
-                            rsi,
-                            reasons
+                                score,
+                                coin,
+                                price,
+                                rsi,
+                                reasons
                             )
                         )
+
 
 
 
@@ -195,7 +233,11 @@ def scanner():
 
 
 
-            msg = "🧠 AI CRYPTO ANALYST V2.5\n\n"
+
+            msg = (
+                "🧠 AI CRYPTO ANALYST V2.5\n\n"
+            )
+
 
 
 
@@ -207,14 +249,15 @@ def scanner():
 
                     msg += (
 
-                    f"🚀 {s[1]}\n"
-                    f"💰 Qiymət: {round(s[2],6)}\n"
-                    f"📊 RSI: {round(s[3],2)}\n"
-                    f"⭐ Score: {s[0]}/9\n"
-                    f"✅ {', '.join(s[4])}\n"
-                    f"🎯 Status: Nəzarət / Fürsət\n\n"
+                        f"🚀 {s[1]}\n"
+                        f"💰 Qiymət: {round(s[2],6)}\n"
+                        f"📊 RSI: {round(s[3],2)}\n"
+                        f"⭐ Score: {s[0]}/9\n"
+                        f"✅ {', '.join(s[4])}\n"
+                        f"🎯 Status: Nəzarət / Fürsət\n\n"
 
                     )
+
 
 
             else:
@@ -233,7 +276,11 @@ def scanner():
 
         except Exception as e:
 
-            print("SCAN ERROR:", e)
+
+            print(
+                "SCAN ERROR:",
+                e
+            )
 
 
 
@@ -255,6 +302,7 @@ def home():
 
 
 
+
 def start():
 
 
@@ -263,9 +311,10 @@ def start():
     )
 
 
-    t.daemon=True
+    t.daemon = True
 
     t.start()
+
 
 
 
@@ -275,7 +324,9 @@ def start():
 if __name__=="__main__":
 
 
-    print("AI V2.5 STARTED")
+    print(
+        "AI V2.5 STARTED"
+    )
 
 
     start()
