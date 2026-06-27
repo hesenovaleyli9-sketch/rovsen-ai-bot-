@@ -22,23 +22,24 @@ print("CHAT CHECK:", CHAT_ID)
 
 
 if not TOKEN:
-    raise Exception("TOKEN yoxdur. Render Environment yoxla")
+    raise Exception("TOKEN yoxdur")
 
 
 if not CHAT_ID:
-    raise Exception("CHAT_ID yoxdur. Render Environment yoxla")
+    raise Exception("CHAT_ID yoxdur")
 
 
 
 bot = Bot(TOKEN)
 
+
 client = Client()
 
 
 
-# =========================
+# =====================
 # TELEGRAM
-# =========================
+# =====================
 
 def send(message):
 
@@ -74,22 +75,32 @@ def send(message):
 
 
 
-# =========================
+# =====================
 # ANALYSIS
-# =========================
+# =====================
 
 def analyze(symbol):
 
     try:
 
-        candles = client.get_klines(
-            symbol=symbol,
-            interval="15m",
-            limit=100
+
+        print(
+            "ANALYZE:",
+            symbol
         )
 
 
+        candles = client.get_klines(
+            symbol=symbol,
+            interval="15m",
+            limit=100,
+            timeout=5
+        )
+
+
+
         df = pd.DataFrame(candles)
+
 
 
         close = df[4].astype(float)
@@ -97,7 +108,9 @@ def analyze(symbol):
         volume = df[5].astype(float)
 
 
+
         price = close.iloc[-1]
+
 
 
         ema20 = close.ewm(
@@ -105,9 +118,11 @@ def analyze(symbol):
         ).mean().iloc[-1]
 
 
+
         ema50 = close.ewm(
             span=50
         ).mean().iloc[-1]
+
 
 
         rsi = ta.momentum.RSIIndicator(
@@ -137,7 +152,7 @@ def analyze(symbol):
             score += 2
 
             reasons.append(
-                "Price strength"
+                "Price Strong"
             )
 
 
@@ -176,11 +191,13 @@ def analyze(symbol):
 
     except Exception as e:
 
+
         print(
             "ANALYZE ERROR:",
             symbol,
             e
         )
+
 
         return None
 
@@ -188,9 +205,9 @@ def analyze(symbol):
 
 
 
-# =========================
+# =====================
 # SCANNER
-# =========================
+# =====================
 
 def scanner():
 
@@ -211,7 +228,15 @@ def scanner():
             )
 
 
+
             info = client.get_exchange_info()
+
+
+
+            print(
+                "BINANCE CONNECTED"
+            )
+
 
 
             coins=[]
@@ -225,7 +250,6 @@ def scanner():
                     x["quoteAsset"]=="USDT"
                     and x["status"]=="TRADING"
                 ):
-
 
                     coins.append(
                         x["symbol"]
@@ -244,7 +268,7 @@ def scanner():
 
 
 
-            for coin in coins[:200]:
+            for coin in coins[:50]:
 
 
                 print(
@@ -260,34 +284,47 @@ def scanner():
 
 
 
-                if result and result["score"] >= 7:
-
-                    signals.append(
-                        result
-                    )
+                if result:
 
 
+                    if result["score"] >= 7:
 
 
-            msg = "🧠 AI CRYPTO ANALYST V2.5\n\n"
+                        signals.append(
+                            result
+                        )
+
+
+
+            msg = (
+                "🧠 AI CRYPTO ANALYST V2.5\n\n"
+            )
 
 
 
             if signals:
 
 
-                for s in signals[:10]:
+                signals.sort(
+                    key=lambda x:x["score"],
+                    reverse=True
+                )
+
+
+
+                for s in signals:
 
 
                     msg += (
 
                     f"🚀 {s['symbol']}\n"
                     f"💰 {round(s['price'],6)}\n"
-                    f"📊 RSI {round(s['rsi'],2)}\n"
-                    f"⭐ Score {s['score']}/9\n"
+                    f"📊 RSI: {round(s['rsi'],2)}\n"
+                    f"⭐ Score: {s['score']}/9\n"
                     f"✅ {', '.join(s['reasons'])}\n\n"
 
                     )
+
 
 
             else:
@@ -300,10 +337,19 @@ def scanner():
 
 
 
-            print(msg)
+            print(
+                msg
+            )
 
 
-            send(msg)
+            send(
+                msg
+            )
+
+
+            print(
+                "SCAN COMPLETE"
+            )
 
 
 
@@ -321,6 +367,11 @@ def scanner():
 
 
 
+
+
+# =====================
+# SERVER
+# =====================
 
 
 @app.route("/")
@@ -341,6 +392,7 @@ def start():
 
 
     t.daemon=True
+
 
     t.start()
 
