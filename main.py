@@ -17,6 +17,19 @@ TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 
+print("TOKEN CHECK:", TOKEN)
+print("CHAT CHECK:", CHAT_ID)
+
+
+if not TOKEN:
+    raise Exception("TOKEN yoxdur. Render Environment yoxla")
+
+
+if not CHAT_ID:
+    raise Exception("CHAT_ID yoxdur. Render Environment yoxla")
+
+
+
 bot = Bot(TOKEN)
 
 client = Client()
@@ -59,10 +72,11 @@ def send(message):
 
 
 
-# =========================
-# ANALYSIS ENGINE
-# =========================
 
+
+# =========================
+# ANALYSIS
+# =========================
 
 def analyze(symbol):
 
@@ -101,19 +115,12 @@ def analyze(symbol):
         ).rsi().iloc[-1]
 
 
-        avg_volume = volume.mean()
-
-        current_volume = volume.iloc[-1]
-
-
 
         score = 0
 
-        reasons = []
+        reasons=[]
 
 
-
-        # TREND
 
         if ema20 > ema50:
 
@@ -125,8 +132,6 @@ def analyze(symbol):
 
 
 
-        # PRICE STRENGTH
-
         if price > ema20:
 
             score += 2
@@ -136,8 +141,6 @@ def analyze(symbol):
             )
 
 
-
-        # RSI
 
         if 45 < rsi < 70:
 
@@ -149,9 +152,7 @@ def analyze(symbol):
 
 
 
-        # VOLUME SPIKE
-
-        if current_volume > avg_volume * 1.8:
+        if volume.iloc[-1] > volume.mean()*1.8:
 
             score += 3
 
@@ -163,11 +164,11 @@ def analyze(symbol):
 
         return {
 
-            "symbol": symbol,
-            "price": price,
-            "rsi": rsi,
-            "score": score,
-            "reasons": reasons
+            "symbol":symbol,
+            "price":price,
+            "rsi":rsi,
+            "score":score,
+            "reasons":reasons
 
         }
 
@@ -175,13 +176,11 @@ def analyze(symbol):
 
     except Exception as e:
 
-
         print(
-            "ANALYZE ERROR",
+            "ANALYZE ERROR:",
             symbol,
             e
         )
-
 
         return None
 
@@ -193,12 +192,11 @@ def analyze(symbol):
 # SCANNER
 # =========================
 
-
 def scanner():
 
 
     print(
-        "🟢 SCANNER STARTED"
+        "SCANNER STARTED"
     )
 
 
@@ -209,7 +207,7 @@ def scanner():
 
 
             print(
-                "START NEW SCAN"
+                "NEW SCAN"
             )
 
 
@@ -219,6 +217,7 @@ def scanner():
             coins=[]
 
 
+
             for x in info["symbols"]:
 
 
@@ -226,6 +225,7 @@ def scanner():
                     x["quoteAsset"]=="USDT"
                     and x["status"]=="TRADING"
                 ):
+
 
                     coins.append(
                         x["symbol"]
@@ -253,39 +253,27 @@ def scanner():
                 )
 
 
+
                 result = analyze(
                     coin
                 )
 
 
 
-                if result:
+                if result and result["score"] >= 7:
 
-
-                    if result["score"] >= 7:
-
-
-                        signals.append(
-                            result
-                        )
+                    signals.append(
+                        result
+                    )
 
 
 
 
-            msg = (
-                "🧠 AI CRYPTO ANALYST V2.5\n\n"
-            )
+            msg = "🧠 AI CRYPTO ANALYST V2.5\n\n"
 
 
 
             if signals:
-
-
-                signals.sort(
-                    key=lambda x:x["score"],
-                    reverse=True
-                )
-
 
 
                 for s in signals[:10]:
@@ -294,38 +282,28 @@ def scanner():
                     msg += (
 
                     f"🚀 {s['symbol']}\n"
-                    f"💰 Price: {round(s['price'],6)}\n"
-                    f"📊 RSI: {round(s['rsi'],2)}\n"
-                    f"⭐ Score: {s['score']}/9\n"
+                    f"💰 {round(s['price'],6)}\n"
+                    f"📊 RSI {round(s['rsi'],2)}\n"
+                    f"⭐ Score {s['score']}/9\n"
                     f"✅ {', '.join(s['reasons'])}\n\n"
 
                     )
-
 
 
             else:
 
 
                 msg += (
-                    "⏳ No strong setup\n"
-                    "Market scanning..."
+                    "⏳ Setup yoxdur\n"
+                    "Skan davam edir..."
                 )
 
 
 
-            print(
-                msg
-            )
+            print(msg)
 
 
-            send(
-                msg
-            )
-
-
-            print(
-                "SCAN COMPLETE"
-            )
+            send(msg)
 
 
 
@@ -345,11 +323,6 @@ def scanner():
 
 
 
-# =========================
-# FLASK
-# =========================
-
-
 @app.route("/")
 def home():
 
@@ -361,9 +334,11 @@ def home():
 
 def start():
 
+
     t = threading.Thread(
         target=scanner
     )
+
 
     t.daemon=True
 
@@ -382,7 +357,6 @@ if __name__=="__main__":
 
 
     start()
-
 
 
     app.run(
