@@ -23,6 +23,10 @@ client = Client()
 
 
 
+# =========================
+# TELEGRAM
+# =========================
+
 def send(message):
 
     async def send_async():
@@ -49,12 +53,15 @@ def send(message):
     except Exception as e:
 
         print(
-            "Telegram error:",
+            "TELEGRAM ERROR:",
             e
         )
 
 
 
+# =========================
+# ANALYSIS ENGINE
+# =========================
 
 
 def analyze(symbol):
@@ -63,8 +70,8 @@ def analyze(symbol):
 
         candles = client.get_klines(
             symbol=symbol,
-            interval="1h",
-            limit=120
+            interval="15m",
+            limit=100
         )
 
 
@@ -79,11 +86,6 @@ def analyze(symbol):
         price = close.iloc[-1]
 
 
-        rsi = ta.momentum.RSIIndicator(
-            close
-        ).rsi().iloc[-1]
-
-
         ema20 = close.ewm(
             span=20
         ).mean().iloc[-1]
@@ -94,6 +96,16 @@ def analyze(symbol):
         ).mean().iloc[-1]
 
 
+        rsi = ta.momentum.RSIIndicator(
+            close
+        ).rsi().iloc[-1]
+
+
+        avg_volume = volume.mean()
+
+        current_volume = volume.iloc[-1]
+
+
 
         score = 0
 
@@ -101,9 +113,11 @@ def analyze(symbol):
 
 
 
+        # TREND
+
         if ema20 > ema50:
 
-            score += 3
+            score += 2
 
             reasons.append(
                 "Trend UP"
@@ -111,17 +125,21 @@ def analyze(symbol):
 
 
 
+        # PRICE STRENGTH
+
         if price > ema20:
 
             score += 2
 
             reasons.append(
-                "Qiymet guclu"
+                "Price strength"
             )
 
 
 
-        if 50 < rsi < 70:
+        # RSI
+
+        if 45 < rsi < 70:
 
             score += 2
 
@@ -131,26 +149,32 @@ def analyze(symbol):
 
 
 
-        if volume.iloc[-1] > volume.mean():
+        # VOLUME SPIKE
 
-            score += 2
+        if current_volume > avg_volume * 1.8:
+
+            score += 3
 
             reasons.append(
-                "Volume artib"
+                "Volume Spike"
             )
 
 
 
-        return (
-            price,
-            rsi,
-            score,
-            reasons
-        )
+        return {
+
+            "symbol": symbol,
+            "price": price,
+            "rsi": rsi,
+            "score": score,
+            "reasons": reasons
+
+        }
 
 
 
     except Exception as e:
+
 
         print(
             "ANALYZE ERROR",
@@ -158,17 +182,23 @@ def analyze(symbol):
             e
         )
 
+
         return None
 
 
 
 
 
+# =========================
+# SCANNER
+# =========================
+
+
 def scanner():
 
 
     print(
-        "SCANNER STARTED"
+        "🟢 SCANNER STARTED"
     )
 
 
@@ -178,27 +208,24 @@ def scanner():
         try:
 
 
-            info = client.get_exchange_info()
-
-
             print(
-                "BINANCE CONNECTED"
+                "START NEW SCAN"
             )
 
 
+            info = client.get_exchange_info()
 
-            coins = []
 
+            coins=[]
 
 
             for x in info["symbols"]:
 
 
                 if (
-                    x["quoteAsset"] == "USDT"
-                    and x["status"] == "TRADING"
+                    x["quoteAsset"]=="USDT"
+                    and x["status"]=="TRADING"
                 ):
-
 
                     coins.append(
                         x["symbol"]
@@ -213,49 +240,35 @@ def scanner():
 
 
 
-            signals = []
+            signals=[]
 
 
 
-            for coin in coins[:300]:
+            for coin in coins[:200]:
 
 
                 print(
-                    "Checking:",
+                    "CHECK:",
+                    coin
+                )
+
+
+                result = analyze(
                     coin
                 )
 
 
 
-                data = analyze(coin)
+                if result:
 
 
-
-                if data:
-
-
-                    price, rsi, score, reasons = data
-
-
-
-                    if score >= 7:
+                    if result["score"] >= 7:
 
 
                         signals.append(
-                            (
-                                score,
-                                coin,
-                                price,
-                                rsi,
-                                reasons
-                            )
+                            result
                         )
 
-
-
-            signals.sort(
-                reverse=True
-            )
 
 
 
@@ -268,34 +281,51 @@ def scanner():
             if signals:
 
 
+                signals.sort(
+                    key=lambda x:x["score"],
+                    reverse=True
+                )
+
+
+
                 for s in signals[:10]:
 
 
                     msg += (
 
-                        f"🚀 {s[1]}\n"
-                        f"💰 Qiymət: {round(s[2],6)}\n"
-                        f"📊 RSI: {round(s[3],2)}\n"
-                        f"⭐ Score: {s[0]}/9\n"
-                        f"✅ {', '.join(s[4])}\n\n"
+                    f"🚀 {s['symbol']}\n"
+                    f"💰 Price: {round(s['price'],6)}\n"
+                    f"📊 RSI: {round(s['rsi'],2)}\n"
+                    f"⭐ Score: {s['score']}/9\n"
+                    f"✅ {', '.join(s['reasons'])}\n\n"
 
                     )
+
 
 
             else:
 
 
                 msg += (
-                    "⏳ Güclü setup yoxdur\n"
-                    "Bazar skan edilir..."
+                    "⏳ No strong setup\n"
+                    "Market scanning..."
                 )
 
 
 
-            print(msg)
+            print(
+                msg
+            )
 
 
-            send(msg)
+            send(
+                msg
+            )
+
+
+            print(
+                "SCAN COMPLETE"
+            )
 
 
 
@@ -303,18 +333,21 @@ def scanner():
 
 
             print(
-                "SCAN ERROR:",
+                "SCANNER ERROR:",
                 e
             )
 
 
 
-        time.sleep(60)
+        time.sleep(300)
 
 
 
 
 
+# =========================
+# FLASK
+# =========================
 
 
 @app.route("/")
@@ -326,17 +359,13 @@ def home():
 
 
 
-
 def start():
-
 
     t = threading.Thread(
         target=scanner
     )
 
-
-    t.daemon = True
-
+    t.daemon=True
 
     t.start()
 
@@ -344,9 +373,7 @@ def start():
 
 
 
-
-
-if __name__ == "__main__":
+if __name__=="__main__":
 
 
     print(
